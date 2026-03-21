@@ -1,0 +1,9 @@
+{
+  "name": "TravelMind",
+  "description": "Multi-agent AI travel planning system that autonomously handles the entire travel lifecycle.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
