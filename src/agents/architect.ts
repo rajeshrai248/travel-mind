@@ -53,6 +53,7 @@ export class Architect {
 
       RULES:
       - ${paceDesc}
+      - Each day must have a "date" field in ISO format YYYY-MM-DD (e.g. 2026-07-28).
       - Each day must have a "city" field indicating which city/town it takes place in.
       - Each day must have a "dayType" field: "arrival" for the first day, "departure" for the last day, "travel" for days spent primarily traveling between cities, "rest" for rest/recovery days, and "explore" for normal sightseeing days.
       - Travel days (dayType: "travel") should have lighter activities — maybe 1 thing at the departure city in the morning and 1 at the arrival city in the evening.

@@ -9,6 +9,21 @@ import { cn } from '../utils/cn';
 import { Orchestrator } from '../agents/orchestrator';
 import { TravelPreferences, DayType, DestinationEdits } from '../types';
 
+/** Parse date strings that may be YYYY-MM-DD, DD-MM-YYYY, or DD/MM/YYYY */
+function safeFormatDate(raw: string): string {
+  // Try native parse first (works for YYYY-MM-DD and most ISO formats)
+  let d = new Date(raw);
+  if (isNaN(d.getTime())) {
+    // Try DD-MM-YYYY or DD/MM/YYYY
+    const parts = raw.split(/[-/]/);
+    if (parts.length === 3 && parts[0].length <= 2) {
+      d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+    }
+  }
+  if (isNaN(d.getTime())) return raw; // fallback to raw string
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
 const DAY_TYPE_STYLES: Record<DayType, { bg: string; label: string; icon: string }> = {
   arrival: { bg: 'bg-blue-50 border-blue-200', label: 'ARRIVAL', icon: '✈️' },
   departure: { bg: 'bg-blue-50 border-blue-200', label: 'DEPARTURE', icon: '✈️' },
@@ -207,7 +222,7 @@ export function ItineraryScreen() {
                         )}
                       </div>
                       <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">
-                        {new Date(day.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                        {safeFormatDate(day.date)}
                       </span>
                     </div>
                   </div>

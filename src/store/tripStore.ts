@@ -7,6 +7,8 @@ interface TripState {
   addMessage: (message: Message) => void;
   setStatus: (status: TravelContext['status']) => void;
   resetTrip: () => void;
+  /** Replace context entirely (used when loading from Firestore) */
+  loadContext: (context: TravelContext) => void;
 }
 
 const initialContext: TravelContext = {
@@ -54,4 +56,5 @@ export const useTripStore = create<TripState>((set) => ({
       context: { ...state.context, status },
     })),
   resetTrip: () => set({ context: initialContext }),
+  loadContext: (context) => set({ context }),
 }));

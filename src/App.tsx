@@ -14,12 +14,15 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { useTripStore } from './store/tripStore';
 import { useAuthStore } from './store/authStore';
 import { useAuth } from './hooks/useAuth';
+import { useTripPersistence } from './hooks/useTripPersistence';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2 } from 'lucide-react';
 
 export default function App() {
   // Initialize auth listener
   useAuth();
+  // Auto-save/load trips from Firestore
+  useTripPersistence();
 
   const { user, loading } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'trips' | 'profile'>('home');

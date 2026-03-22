@@ -6,6 +6,22 @@ export interface AppUser {
   provider: 'google' | 'facebook' | 'unknown';
 }
 
+export interface TrendingDestination {
+  city: string;
+  country: string;
+  reason: string;
+  tags: string[];
+  imageQuery: string;
+  score: number;
+}
+
+export interface UserPreferenceSummary {
+  topInterests: string[];
+  averagePace: 'relaxed' | 'moderate' | 'intense';
+  budgetTier: 'budget' | 'mid' | 'premium';
+  visitedCities: string[];
+}
+
 export interface Passenger {
   name: string;
 }
