@@ -32,7 +32,8 @@ Examples:
 
 Notes:
   • source-branch and target-branch must be different.
-  • Both branches must exist in the local checkout.
+  • source-branch can be a local branch.
+  • target-branch is always resolved from remote (origin) to ensure it is up to date.
   • Supports Java / Spring Boot and JavaScript / TypeScript projects.
 ```
 
@@ -52,18 +53,32 @@ If yes, stop immediately and ask the user to provide two **different** branch na
 
 ---
 
-## Step 2 — Collect the Diff
+## Step 2 — Fetch Remote Target and Collect the Diff
 
-No shell-execution tool is available in this environment. Ask the user to run the following commands in the **VS Code integrated terminal** (`Ctrl+\``) and paste all output into the chat before you proceed:
+The target branch must always be taken from remote so the diff reflects the true merge base, not a stale local copy.
+
+Run the following commands in sequence inside `REPO_PATH`:
 
 ```bash
-git log <TARGET_BRANCH>..<SOURCE_BRANCH> --oneline
-git diff <TARGET_BRANCH>...<SOURCE_BRANCH> --stat
-git diff <TARGET_BRANCH>...<SOURCE_BRANCH>
-git diff <TARGET_BRANCH>...<SOURCE_BRANCH> -- "**/pom.xml" "**/build.gradle" "**/build.gradle.kts" "**/package.json" "**/package-lock.json"
+# Ensure remote target is up to date
+git fetch origin <TARGET_BRANCH>
+
+# Commit summary (source is local, target is remote)
+git log origin/<TARGET_BRANCH>..<SOURCE_BRANCH> --oneline
+
+# Changed files overview
+git diff origin/<TARGET_BRANCH>...<SOURCE_BRANCH> --stat
+
+# Full diff
+git diff origin/<TARGET_BRANCH>...<SOURCE_BRANCH>
+
+# Dependency file changes only
+git diff origin/<TARGET_BRANCH>...<SOURCE_BRANCH> -- "**/pom.xml" "**/build.gradle" "**/build.gradle.kts" "**/package.json" "**/package-lock.json"
 ```
 
-Do not begin the review until the diff output has been provided. If the diff is empty after confirming the branches are different, say so and stop — do not fabricate a review.
+If the `git fetch` fails (e.g. no network, wrong remote name), report the error and ask the user whether to fall back to their local copy of `TARGET_BRANCH` before continuing.
+
+Do not begin the review if the diff is empty after confirming the branches differ — report it and stop.
 
 ---
 
