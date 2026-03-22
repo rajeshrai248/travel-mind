@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { useTripStore } from '../store/tripStore';
+import { useAuthStore } from '../store/authStore';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
@@ -7,14 +7,18 @@ import { PlusCircle, Bell, Plane, MapPin } from 'lucide-react';
 
 export function HomeScreen({ onStartPlanning }: { onStartPlanning: () => void }) {
   const { context } = useTripStore();
+  const { user } = useAuthStore();
+  const firstName = user?.displayName?.split(' ')[0] ?? 'Traveler';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <div className="px-6 pt-12 space-y-8">
+    <div className="px-6 pt-10 md:pt-12 pb-6 space-y-8">
       <header className="flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-surface-container overflow-hidden border-2 border-primary-container">
             <img
-              src="https://picsum.photos/seed/user/100/100"
+              src={user?.photoURL ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName)}&background=005251&color=fff&size=100`}
               alt="User"
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover"
@@ -22,7 +26,7 @@ export function HomeScreen({ onStartPlanning }: { onStartPlanning: () => void })
           </div>
           <div className="flex flex-col">
             <h2 className="font-headline font-bold tracking-tight text-on-surface text-lg">
-              Good morning, Traveler 👋
+              {greeting}, {firstName} 👋
             </h2>
             <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
               Where to next?
@@ -37,14 +41,14 @@ export function HomeScreen({ onStartPlanning }: { onStartPlanning: () => void })
       <section className="relative overflow-hidden rounded-[24px] p-8 bg-gradient-to-br from-on-primary-container to-white shadow-sm">
         <div className="relative z-10 max-w-[60%]">
           <h1 className="text-2xl font-headline font-extrabold text-primary mb-2 leading-tight">
-            Plan a New Trip
+            New trip? Let's go.
           </h1>
           <p className="text-on-surface-variant text-sm mb-6">
-            Upload your flight ticket or enter details manually to start your journey.
+            Drop your ticket, we handle the rest 🗺️
           </p>
           <Button onClick={onStartPlanning} variant="secondary">
             <PlusCircle size={18} />
-            Start Planning
+            Let's go →
           </Button>
         </div>
         <div className="absolute -right-4 -bottom-4 opacity-20 pointer-events-none">
@@ -95,7 +99,7 @@ export function HomeScreen({ onStartPlanning }: { onStartPlanning: () => void })
       </section>
 
       <section className="pb-10">
-        <h2 className="text-xl font-headline font-bold text-on-surface mb-6">Trending Destinations</h2>
+        <h2 className="text-xl font-headline font-bold text-on-surface mb-6">Trending rn 🔥</h2>
         <div className="grid grid-cols-2 gap-4">
           {[
             { name: 'Venice', img: 'venice' },

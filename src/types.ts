@@ -1,3 +1,11 @@
+export interface AppUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  provider: 'google' | 'facebook' | 'unknown';
+}
+
 export interface Passenger {
   name: string;
 }
@@ -17,6 +25,32 @@ export interface Destination {
   country: string;
   lat: number;
   lng: number;
+}
+
+export interface DestinationStop {
+  destination: Destination;
+  stayDays: number;
+  isBaseCity: boolean;
+  distanceFromBase: number; // km
+  travelTimeFromPrevious: number; // minutes
+  travelModeFromPrevious: 'drive' | 'train' | 'bus' | 'ferry' | 'flight' | 'none';
+}
+
+export type TransportMode = 'car' | 'public' | 'mixed';
+
+export interface TravelPreferences {
+  totalBudget: number; // actual trip budget in user's currency
+  currency: string; // e.g. 'USD', 'EUR', 'GBP'
+  interests: string[];
+  pace: 'relaxed' | 'moderate' | 'intense';
+  transportMode: TransportMode;
+  travelRadius: number; // km from base city
+  restDayFrequency: number; // rest day every N travel days (0 = no forced rest)
+}
+
+export interface DestinationEdits {
+  kept: DestinationStop[];
+  added: string[]; // city names typed by user
 }
 
 export interface Activity {
@@ -48,10 +82,14 @@ export interface TransportSegment {
   cost: number;
 }
 
+export type DayType = 'explore' | 'travel' | 'rest' | 'arrival' | 'departure';
+
 export interface DayPlan {
   dayNumber: number;
   date: string;
   theme: string;
+  dayType: DayType;
+  city: string; // which city this day is in
   activities: Activity[];
   meals: MealRecommendation[];
   transportBetweenActivities: TransportSegment[];
@@ -100,20 +138,18 @@ export interface Message {
   agent?: string;
 }
 
-export type TripStatus = 'idle' | 'parsing' | 'researching' | 'planning' | 'reviewing' | 'booking' | 'confirming' | 'confirmed';
+export type TripStatus = 'idle' | 'parsing' | 'awaiting_preferences' | 'region_planning' | 'researching' | 'planning' | 'reviewing' | 'booking' | 'confirming' | 'confirmed';
 
 export interface TravelContext {
   tripId: string;
   passengers: Passenger[];
   flights: Flight[];
-  destination: Destination | null;
+  destination: Destination | null; // kept for backward compat — baseCity alias
+  baseCity: Destination | null;
+  destinations: DestinationStop[];
   travelPeriod: { startDate: string; endDate: string; durationDays: number } | null;
   budget: { total: number; currency: string; perDay: number };
-  preferences: {
-    budgetLevel: 'budget' | 'mid' | 'premium';
-    interests: string[];
-    pace: 'relaxed' | 'moderate' | 'intense';
-  };
+  preferences: TravelPreferences;
   itinerary: DayPlan[] | null;
   accommodations: AccommodationOption[] | null;
   transport: TransportOption[] | null;

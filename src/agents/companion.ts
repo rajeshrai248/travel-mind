@@ -15,7 +15,7 @@ export class Companion {
     }));
 
     const chat = this.ai.chats.create({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       config: {
         systemInstruction: `
           You are TravelMind Companion, a helpful AI travel assistant.

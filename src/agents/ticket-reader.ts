@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { TravelContext, Flight, Passenger } from "../types";
+import { TravelContext } from "../types";
 
 export class TicketReader {
   private ai: GoogleGenAI;
@@ -9,6 +9,7 @@ export class TicketReader {
   }
 
   async parse(pdfText: string): Promise<Partial<TravelContext>> {
+    console.log('[TicketReader] Starting, text length:', pdfText?.length, 'apiKey present:', !!this.ai);
     const prompt = `
       Extract structured travel data from the following airline ticket text:
       "${pdfText}"
@@ -24,7 +25,7 @@ export class TicketReader {
     `;
 
     const response = await this.ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",

@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { TravelContext, DayPlan } from "../types";
+import { TravelContext, Activity } from "../types";
 
 export class Architect {
   private ai: GoogleGenAI;
@@ -8,19 +8,65 @@ export class Architect {
     this.ai = new GoogleGenAI({ apiKey });
   }
 
-  async planItinerary(context: TravelContext): Promise<Partial<TravelContext>> {
-    if (!context.destination || !context.travelPeriod) return {};
+  async planItinerary(context: TravelContext, exploredActivities?: Activity[]): Promise<Partial<TravelContext>> {
+    if (!context.travelPeriod) return {};
+
+    const hasMultipleStops = context.destinations && context.destinations.length > 0;
+
+    // Build destination schedule description
+    let scheduleDesc = '';
+    if (hasMultipleStops) {
+      scheduleDesc = context.destinations.map((stop, i) => {
+        const travelNote = stop.travelTimeFromPrevious > 0
+          ? ` (${stop.travelTimeFromPrevious} min ${stop.travelModeFromPrevious} from previous stop)`
+          : '';
+        return `Stop ${i + 1}: ${stop.destination.city} — ${stop.stayDays} day(s)${travelNote}`;
+      }).join('\n');
+    } else if (context.destination) {
+      scheduleDesc = `Single destination: ${context.destination.city}, ${context.destination.country}`;
+    } else {
+      return {};
+    }
+
+    const { pace, restDayFrequency, interests } = context.preferences;
+
+    const paceDesc =
+      pace === 'relaxed' ? 'Relaxed pace: 1-2 activities per day maximum, generous free time'
+      : pace === 'moderate' ? 'Moderate pace: 2-3 activities per day, balanced with downtime'
+      : 'Packed pace: fit in as many activities as possible';
+
+    const restDesc = restDayFrequency > 0
+      ? `IMPORTANT: Schedule a rest/recovery day every ${restDayFrequency} active travel days. Rest days should have the dayType "rest" and only 0-1 light optional activities (e.g., a leisurely café visit or spa). The theme should be something like "Rest & Recharge".`
+      : '';
+
+    // Summarize explored activities for the prompt
+    const activitiesContext = exploredActivities && exploredActivities.length > 0
+      ? `\n      RESEARCHED ACTIVITIES (use these as the basis for the itinerary):\n      ${exploredActivities.map(a => `- ${a.name} (${(a as any).city || 'unknown city'}, ${a.category}, rating: ${a.rating})`).join('\n      ')}`
+      : '';
 
     const prompt = `
-      Compose a day-by-day travel itinerary for ${context.destination.city}, ${context.destination.country} from ${context.travelPeriod.startDate} to ${context.travelPeriod.endDate}.
-      Optimize for logistics, enjoyment, and pacing.
-      Include morning/afternoon/evening activities, travel time between locations, and meal recommendations.
-      Balance intensity and include leisure days.
-      Highlight must-see attractions.
+      Create a day-by-day travel itinerary for ${context.travelPeriod.startDate} to ${context.travelPeriod.endDate} (${context.travelPeriod.durationDays} days).
+
+      DESTINATION SCHEDULE:
+      ${scheduleDesc}
+      ${activitiesContext}
+
+      RULES:
+      - ${paceDesc}
+      - Each day must have a "city" field indicating which city/town it takes place in.
+      - Each day must have a "dayType" field: "arrival" for the first day, "departure" for the last day, "travel" for days spent primarily traveling between cities, "rest" for rest/recovery days, and "explore" for normal sightseeing days.
+      - Travel days (dayType: "travel") should have lighter activities — maybe 1 thing at the departure city in the morning and 1 at the arrival city in the evening.
+      - Arrival day and departure day should be lighter (airport logistics, check-in/out).
+      ${restDesc}
+      - ${interests.length > 0 ? `Prioritize activities matching these interests: ${interests.join(', ')}` : 'General sightseeing'}
+      - Include morning, afternoon, and evening activity slots where appropriate.
+      - Include meal recommendations for each day.
+      - Include transport segments between activities.
+      - Optimize logistics — cluster nearby activities together.
     `;
 
     const response = await this.ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -35,6 +81,8 @@ export class Architect {
                   dayNumber: { type: Type.INTEGER },
                   date: { type: Type.STRING },
                   theme: { type: Type.STRING },
+                  dayType: { type: Type.STRING },
+                  city: { type: Type.STRING },
                   activities: {
                     type: Type.ARRAY,
                     items: {
@@ -104,7 +152,7 @@ export class Architect {
       const result = JSON.parse(response.text || "{}");
       return result;
     } catch (e) {
-      console.error("Failed to parse Gemini response:", e);
+      console.error("Failed to parse Architect response:", e);
       return {};
     }
   }

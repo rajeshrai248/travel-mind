@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { TravelContext, AccommodationOption, TransportOption } from "../types";
+import { TravelContext, AccommodationOption, TransportOption, DestinationStop } from "../types";
 
 export class Concierge {
   private ai: GoogleGenAI;
@@ -9,21 +9,78 @@ export class Concierge {
   }
 
   async recommend(context: TravelContext): Promise<Partial<TravelContext>> {
-    if (!context.destination || !context.travelPeriod) return {};
+    if (!context.travelPeriod) return {};
+
+    const hasMultipleStops = context.destinations && context.destinations.length > 0;
+
+    if (hasMultipleStops) {
+      return await this.recommendMultiStop(context);
+    }
+
+    // Legacy single-destination fallback
+    if (!context.destination) return {};
+    return await this.recommendSingle(context.destination.city, context.destination.country, context);
+  }
+
+  private async recommendMultiStop(context: TravelContext): Promise<Partial<TravelContext>> {
+    // Get unique non-base cities that need accommodation (base city included if staying overnight)
+    const uniqueStops = new Map<string, DestinationStop>();
+    for (const stop of context.destinations) {
+      const key = `${stop.destination.city}-${stop.destination.country}`;
+      if (!uniqueStops.has(key) && stop.stayDays > 0) {
+        uniqueStops.set(key, stop);
+      }
+    }
+
+    const stops = Array.from(uniqueStops.values());
+
+    // Get accommodations for all stops in parallel
+    const results = await Promise.all(
+      stops.map(stop =>
+        this.recommendSingle(stop.destination.city, stop.destination.country, context, stop.stayDays)
+      )
+    );
+
+    // Merge all results
+    const allAccommodations: AccommodationOption[] = [];
+    const allTransport: TransportOption[] = [];
+    for (const result of results) {
+      if (result.accommodations) allAccommodations.push(...result.accommodations);
+      if (result.transport) allTransport.push(...result.transport);
+    }
+
+    // Add inter-city transport options
+    const interCityTransport = await this.getInterCityTransport(context);
+
+    return {
+      accommodations: allAccommodations,
+      transport: [...allTransport, ...interCityTransport],
+    };
+  }
+
+  private async recommendSingle(
+    city: string,
+    country: string,
+    context: TravelContext,
+    stayDays?: number,
+  ): Promise<{ accommodations: AccommodationOption[]; transport: TransportOption[] }> {
+    const stayNote = stayDays ? `Staying for ${stayDays} nights.` : '';
 
     const prompt = `
-      Recommend hotels and transport options in ${context.destination.city}, ${context.destination.country} for ${context.travelPeriod.startDate} to ${context.travelPeriod.endDate}.
-      Budget level: ${context.preferences.budgetLevel}.
-      Filter by: budget, star rating, guest rating, location (proximity to itinerary hotspots), amenities, cancellation policy.
-      Recommend rental cars and public transit options.
+      Recommend hotels and local transport options in ${city}, ${country}.
+      Dates: ${context.travelPeriod!.startDate} to ${context.travelPeriod!.endDate}.
+      ${stayNote}
+      Total trip budget: ${context.preferences.totalBudget} ${context.preferences.currency} for the entire trip (${context.travelPeriod!.durationDays} days, so roughly ${Math.round(context.preferences.totalBudget / context.travelPeriod!.durationDays)} ${context.preferences.currency}/day).
+      Transport preference: ${context.preferences.transportMode}.
+      Tag each accommodation with its city name in the location field.
+      Filter by: budget, star rating, guest rating, location (proximity to city center), amenities, cancellation policy.
       Present options in tiered recommendations: Budget, Mid-Range, Premium.
     `;
 
     const response = await this.ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -67,10 +124,65 @@ export class Concierge {
 
     try {
       const result = JSON.parse(response.text || "{}");
-      return result;
+      return {
+        accommodations: result.accommodations || [],
+        transport: result.transport || [],
+      };
     } catch (e) {
-      console.error("Failed to parse Gemini response:", e);
-      return {};
+      console.error(`Failed to parse Concierge response for ${city}:`, e);
+      return { accommodations: [], transport: [] };
+    }
+  }
+
+  private async getInterCityTransport(context: TravelContext): Promise<TransportOption[]> {
+    if (context.destinations.length < 2) return [];
+
+    const legs = context.destinations
+      .slice(1)
+      .map((stop, i) => `${context.destinations[i].destination.city} → ${stop.destination.city} (${stop.travelModeFromPrevious})`)
+      .join(', ');
+
+    const prompt = `
+      Recommend inter-city transport options for these legs: ${legs}.
+      Transport preference: ${context.preferences.transportMode}.
+      Total trip budget: ${context.preferences.totalBudget} ${context.preferences.currency} for the entire trip (${context.travelPeriod!.durationDays} days, so roughly ${Math.round(context.preferences.totalBudget / context.travelPeriod!.durationDays)} ${context.preferences.currency}/day).
+      Include realistic prices and providers. If rental car, include estimated fuel cost.
+    `;
+
+    const response = await this.ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            transport: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  type: { type: Type.STRING },
+                  provider: { type: Type.STRING },
+                  price: { type: Type.NUMBER },
+                  details: { type: Type.STRING },
+                },
+                required: ["type", "provider", "price", "details"],
+              },
+            },
+          },
+          required: ["transport"],
+        },
+      },
+    });
+
+    try {
+      const result = JSON.parse(response.text || "{}");
+      return result.transport || [];
+    } catch (e) {
+      console.error("Failed to parse inter-city transport response:", e);
+      return [];
     }
   }
 }

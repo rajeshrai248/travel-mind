@@ -9,10 +9,19 @@ import { HomeScreen } from './screens/HomeScreen';
 import { NewTripScreen } from './screens/NewTripScreen';
 import { ChatScreen } from './screens/ChatScreen';
 import { ItineraryScreen } from './screens/ItineraryScreen';
+import { LoginScreen } from './screens/LoginScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
 import { useTripStore } from './store/tripStore';
+import { useAuthStore } from './store/authStore';
+import { useAuth } from './hooks/useAuth';
 import { motion, AnimatePresence } from 'motion/react';
+import { Loader2 } from 'lucide-react';
 
 export default function App() {
+  // Initialize auth listener
+  useAuth();
+
+  const { user, loading } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'trips' | 'profile'>('home');
   const [showNewTrip, setShowNewTrip] = useState(false);
   const { context } = useTripStore();
@@ -24,6 +33,20 @@ export default function App() {
     }
   }, [context.status]);
 
+  // Loading state while Firebase checks auth
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <Loader2 size={32} className="text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  // Not authenticated — show login
+  if (!user) {
+    return <LoginScreen />;
+  }
+
   const renderScreen = () => {
     switch (activeTab) {
       case 'home':
@@ -33,39 +56,14 @@ export default function App() {
       case 'trips':
         return <ItineraryScreen />;
       case 'profile':
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-12 text-center space-y-6">
-            <div className="w-24 h-24 rounded-full bg-surface-container overflow-hidden border-4 border-primary-container shadow-xl">
-              <img
-                src="https://picsum.photos/seed/user/200/200"
-                alt="User"
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-2xl font-bold text-on-surface">Rajesh Rai</h2>
-              <p className="text-on-surface-variant font-medium">rajeshrai248@gmail.com</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4 w-full pt-6">
-              <div className="bg-surface-container-low p-4 rounded-2xl space-y-1">
-                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Trips</span>
-                <p className="text-xl font-black text-on-surface">12</p>
-              </div>
-              <div className="bg-surface-container-low p-4 rounded-2xl space-y-1">
-                <span className="text-[10px] font-bold text-secondary uppercase tracking-widest">Miles</span>
-                <p className="text-xl font-black text-on-surface">42k</p>
-              </div>
-            </div>
-          </div>
-        );
+        return <ProfileScreen />;
       default:
         return <HomeScreen onStartPlanning={() => setShowNewTrip(true)} />;
     }
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-background">
+    <div className="min-h-screen w-screen bg-background">
       <AnimatePresence mode="wait">
         {showNewTrip ? (
           <motion.div
@@ -74,7 +72,7 @@ export default function App() {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 z-[100] bg-background"
+            className="fixed inset-0 z-[100] bg-background overflow-y-auto"
           >
             <NewTripScreen onComplete={() => setShowNewTrip(false)} />
           </motion.div>
@@ -84,12 +82,9 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="h-full"
           >
             <Layout activeTab={activeTab} onTabChange={setActiveTab}>
-              <div className="h-full">
-                {renderScreen()}
-              </div>
+              {renderScreen()}
             </Layout>
           </motion.div>
         )}

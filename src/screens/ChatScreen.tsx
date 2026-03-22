@@ -38,28 +38,30 @@ export function ChatScreen() {
       }
     } catch (error) {
       console.error('Chat error:', error);
-      addMessage({ role: 'assistant', content: 'Sorry, I encountered an error processing your request.', agent: 'Companion' });
+      addMessage({ role: 'assistant', content: 'something went wrong 😅 — try again?', agent: 'Companion' });
     } finally {
       setIsTyping(false);
     }
   };
 
+  // Chat needs a fixed viewport height minus the bottom nav, so messages fill the space
+  // and the input bar stays pinned at the bottom. We use dvh units for mobile safety.
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col" style={{ height: 'calc(100dvh - 7rem)' }}>
       <header className="px-6 py-4 glass-nav border-b border-outline-variant/10 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
             <Bot size={24} className="text-primary" />
           </div>
           <div className="flex flex-col">
-            <h2 className="font-headline font-bold text-on-surface">TravelMind Companion</h2>
+            <h2 className="font-headline font-bold text-on-surface">TravelMind AI</h2>
             <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest">Online</span>
             </div>
           </div>
         </div>
-        <button className="text-primary font-bold text-sm">Reset</button>
+        <button className="text-primary font-bold text-sm">Clear chat</button>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-8 space-y-6 no-scrollbar">
@@ -120,7 +122,7 @@ export function ChatScreen() {
         )}
       </div>
 
-      <div className="p-6 bg-white/80 backdrop-blur-xl border-t border-outline-variant/10">
+      <div className="p-4 md:p-6 bg-white/80 backdrop-blur-xl border-t border-outline-variant/10">
         <div className="relative flex items-center gap-3">
           <button className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors">
             <Paperclip size={20} />
@@ -131,7 +133,7 @@ export function ChatScreen() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Ask TravelMind anything..."
+              placeholder="ask me anything about your trip..."
               className="w-full bg-surface-container rounded-2xl px-5 py-3.5 pr-12 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             />
             <button
