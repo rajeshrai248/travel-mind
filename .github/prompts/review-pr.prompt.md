@@ -8,8 +8,9 @@ description: >
 
 # PR Review — Java / Spring Boot · JavaScript / TypeScript
 
-> MCP connections to GitHub and Azure DevOps are organisation-blocked.
-> This prompt uses the VS Code integrated terminal to fetch the diff automatically.
+> **Platform note:** Copilot Chat cannot run shell commands directly.
+> This prompt uses `#terminalLastCommand` — you run one git command in the terminal,
+> Copilot reads the output automatically. No copy-pasting required.
 
 ---
 
@@ -53,32 +54,23 @@ If yes, stop immediately and ask the user to provide two **different** branch na
 
 ---
 
-## Step 2 — Fetch Remote Target and Collect the Diff
+## Step 2 — Collect the Diff via Terminal + #terminalLastCommand
 
-The target branch must always be taken from remote so the diff reflects the true merge base, not a stale local copy.
+Copilot Chat cannot execute shell commands directly. Use this flow instead:
 
-Run the following commands in sequence inside `REPO_PATH`:
+**2a — Ask the user to run this single combined command** in the VS Code integrated terminal (`Ctrl+\``):
 
 ```bash
-# Ensure remote target is up to date
-git fetch origin <TARGET_BRANCH>
-
-# Commit summary (source is local, target is remote)
-git log origin/<TARGET_BRANCH>..<SOURCE_BRANCH> --oneline
-
-# Changed files overview
-git diff origin/<TARGET_BRANCH>...<SOURCE_BRANCH> --stat
-
-# Full diff
-git diff origin/<TARGET_BRANCH>...<SOURCE_BRANCH>
-
-# Dependency file changes only
-git diff origin/<TARGET_BRANCH>...<SOURCE_BRANCH> -- "**/pom.xml" "**/build.gradle" "**/build.gradle.kts" "**/package.json" "**/package-lock.json"
+git fetch origin <TARGET_BRANCH> && echo "=== LOG ===" && git log origin/<TARGET_BRANCH>..<SOURCE_BRANCH> --oneline && echo "=== STAT ===" && git diff origin/<TARGET_BRANCH>...<SOURCE_BRANCH> --stat && echo "=== DIFF ===" && git diff origin/<TARGET_BRANCH>...<SOURCE_BRANCH> && echo "=== DEPS ===" && git diff origin/<TARGET_BRANCH>...<SOURCE_BRANCH> -- "**/pom.xml" "**/build.gradle" "**/build.gradle.kts" "**/package.json" "**/package-lock.json"
 ```
 
-If the `git fetch` fails (e.g. no network, wrong remote name), report the error and ask the user whether to fall back to their local copy of `TARGET_BRANCH` before continuing.
+> Target branch is always resolved from `origin/<TARGET_BRANCH>` so the diff reflects the latest remote state, not a stale local copy. Source branch is local.
 
-Do not begin the review if the diff is empty after confirming the branches differ — report it and stop.
+**2b — Once the command has run**, tell the user to type `#terminalLastCommand` in the chat input. Copilot will read the terminal output automatically — no copy-pasting required.
+
+**2c — Edge cases:**
+- If `git fetch` fails (no network / wrong remote), ask the user whether to fall back to local `TARGET_BRANCH`
+- If the diff is empty after confirming the branches are different, stop and report it — do not fabricate a review
 
 ---
 
