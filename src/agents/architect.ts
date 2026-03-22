@@ -28,7 +28,7 @@ export class Architect {
       return {};
     }
 
-    const { pace, restDayFrequency, interests } = context.preferences;
+    const { pace, restDayFrequency, interests, totalBudget, currency } = context.preferences;
 
     const paceDesc =
       pace === 'relaxed' ? 'Relaxed pace: 1-2 activities per day maximum, generous free time'
@@ -63,6 +63,7 @@ export class Architect {
       - Include meal recommendations for each day.
       - Include transport segments between activities.
       - Optimize logistics — cluster nearby activities together.
+      ${totalBudget > 0 ? `- Total trip budget is ${totalBudget} ${currency} (about ${Math.round(totalBudget / context.travelPeriod.durationDays)} ${currency}/day). Choose activities and meals that fit within this budget.` : ''}
     `;
 
     const response = await this.ai.models.generateContent({
