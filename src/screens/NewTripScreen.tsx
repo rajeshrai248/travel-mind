@@ -5,8 +5,7 @@ import { TravelPreferencesForm } from '../components/TravelPreferencesForm';
 import { CloudUpload, Camera, Check, X } from 'lucide-react';
 import { cn } from '../utils/cn';
 import axios from 'axios';
-import { getAuthHeaders } from '../lib/api';
-import { Orchestrator } from '../agents/orchestrator';
+import { getAuthHeaders, getApiBaseUrl, callAgentApi } from '../lib/api';
 import { TravelPreferences } from '../types';
 
 const STAGES = [
@@ -209,7 +208,6 @@ export function NewTripScreen({ onComplete }: { onComplete: () => void }) {
   const { context, setContext } = useTripStore();
   const [phase, setPhase] = useState<'upload' | 'preferences' | 'processing'>('upload');
   const [stage, setStage] = useState('upload');
-  const orchestratorRef = useState(() => new Orchestrator(process.env.GEMINI_API_KEY!))[0];
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -223,13 +221,10 @@ export function NewTripScreen({ onComplete }: { onComplete: () => void }) {
 
     try {
       const authHeaders = await getAuthHeaders().catch(() => ({}));
-      const response = await axios.post('/api/parse-ticket', formData, { headers: authHeaders });
+      const response = await axios.post(`${getApiBaseUrl()}/api/parse-ticket`, formData, { headers: authHeaders });
 
-      const result = await orchestratorRef.processInput(
-        context,
-        { type: 'pdf', data: response.data.text },
-        (s) => setStage(s),
-      );
+      setStage('ticket');
+      const result = await callAgentApi('pdf', response.data.text, context);
 
       // Ticket parsed — save partial context and show questionnaire
       setContext(result);
@@ -245,18 +240,26 @@ export function NewTripScreen({ onComplete }: { onComplete: () => void }) {
     setPhase('processing');
     setStage('region_planner');
 
+    // Simulate stage progression while the backend runs the full pipeline
+    const stageSchedule: Array<{ stage: string; delay: number }> = [
+      { stage: 'explorer', delay: 12000 },
+      { stage: 'architect', delay: 28000 },
+      { stage: 'concierge', delay: 44000 },
+    ];
+    const timers = stageSchedule.map(({ stage: s, delay }) =>
+      setTimeout(() => setStage(s), delay),
+    );
+
     try {
       const currentContext = { ...useTripStore.getState().context };
-      const result = await orchestratorRef.processInput(
-        currentContext,
-        { type: 'preferences', data: preferences },
-        (s) => setStage(s),
-      );
+      const result = await callAgentApi('preferences', preferences, currentContext);
 
+      timers.forEach(clearTimeout);
       setContext(result);
       setStage('done');
       setTimeout(() => onComplete(), 1800);
     } catch (error) {
+      timers.forEach(clearTimeout);
       console.error('[NewTrip] Planning error:', error);
       // Go back to preferences on error so user can retry
       setPhase('preferences');

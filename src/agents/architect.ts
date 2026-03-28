@@ -152,9 +152,11 @@ export class Architect {
 
     try {
       const result = JSON.parse(response.text || "{}");
+      console.log(`[Architect] Got ${result.itinerary?.length ?? 0} days. Day types:`, result.itinerary?.map((d: any) => `${d.date} ${d.city} (${d.dayType})`).join(', '));
       return result;
     } catch (e) {
       console.error("Failed to parse Architect response:", e);
+      console.error("[Architect] Raw response:", response.text?.slice(0, 300));
       return {};
     }
   }

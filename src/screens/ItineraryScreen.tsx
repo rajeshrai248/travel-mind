@@ -4,9 +4,9 @@ import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { TravelPreferencesForm } from '../components/TravelPreferencesForm';
-import { MapPin, Clock, Calendar, Utensils, Navigation, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
+import { MapPin, Clock, Calendar, Utensils, Navigation, CheckCircle2, XCircle, ArrowLeft, Hotel, Car } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { Orchestrator } from '../agents/orchestrator';
+import { callAgentApi } from '../lib/api';
 import { TravelPreferences, DayType, DestinationEdits } from '../types';
 
 /** Parse date strings that may be YYYY-MM-DD, DD-MM-YYYY, or DD/MM/YYYY */
@@ -45,9 +45,13 @@ export function ItineraryScreen() {
     }
 
     setStatus('confirming');
-    const orchestrator = new Orchestrator(process.env.GEMINI_API_KEY!);
-    const result = await orchestrator.processInput(context, { type: 'approval', data: true });
-    setContext(result);
+    try {
+      const result = await callAgentApi('approval', true, context);
+      setContext(result);
+    } catch (error) {
+      console.error('[Itinerary] Approval error:', error);
+      setStatus('reviewing');
+    }
   };
 
   const handleReplan = async (preferences: TravelPreferences, destinationEdits?: DestinationEdits) => {
@@ -56,11 +60,7 @@ export function ItineraryScreen() {
     setStatus('region_planning');
 
     try {
-      const orchestrator = new Orchestrator(process.env.GEMINI_API_KEY!);
-      const result = await orchestrator.processInput(
-        context,
-        { type: 'preferences', data: { preferences, destinationEdits } },
-      );
+      const result = await callAgentApi('preferences', { preferences, destinationEdits }, context);
       setContext(result);
     } catch (error) {
       console.error('[Itinerary] Replan error:', error);
@@ -278,6 +278,84 @@ export function ItineraryScreen() {
           </div>
         ))}
       </div>
+
+      {/* Accommodations */}
+      {context.accommodations && context.accommodations.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Hotel size={18} className="text-primary" />
+            <h2 className="text-lg font-extrabold text-on-surface uppercase tracking-wider">Where to Stay</h2>
+          </div>
+          {/* Group by city extracted from location field */}
+          {(() => {
+            const grouped = new Map<string, typeof context.accommodations>();
+            for (const acc of context.accommodations!) {
+              // Location field is e.g. "City Center, Paris" — extract the city part after the comma, or use full string
+              const cityKey = acc.location.includes(',') ? acc.location.split(',').pop()!.trim() : acc.location;
+              if (!grouped.has(cityKey)) grouped.set(cityKey, []);
+              grouped.get(cityKey)!.push(acc);
+            }
+            return Array.from(grouped.entries()).map(([cityKey, accs]) => (
+              <div key={cityKey} className="space-y-3">
+                {grouped.size > 1 && (
+                  <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest pl-1">{cityKey}</p>
+                )}
+                <div className="grid gap-3">
+                  {accs.map((acc) => (
+                    <Card key={acc.id} className="p-4 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-on-surface text-sm">{acc.name}</p>
+                          <p className="text-xs text-on-surface-variant">{acc.type}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-extrabold text-primary text-sm">{context.preferences.currency} {acc.pricePerNight}<span className="text-xs font-normal text-on-surface-variant">/night</span></p>
+                          <p className="text-xs text-on-surface-variant">★ {acc.rating}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-on-surface-variant text-xs">
+                        <MapPin size={12} />
+                        <span>{acc.location}</span>
+                      </div>
+                      {acc.amenities && acc.amenities.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {acc.amenities.slice(0, 5).map((a, i) => (
+                            <span key={i} className="text-[10px] bg-surface-container text-on-surface-variant px-2 py-0.5 rounded-md">{a}</span>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ));
+          })()}
+        </section>
+      )}
+
+      {/* Transport options */}
+      {context.transport && context.transport.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Car size={18} className="text-primary" />
+            <h2 className="text-lg font-extrabold text-on-surface uppercase tracking-wider">Getting Around</h2>
+          </div>
+          <div className="grid gap-3">
+            {context.transport.map((t) => (
+              <Card key={t.id} className="p-4 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <Navigation size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm text-on-surface">{t.provider}</p>
+                  <p className="text-xs text-on-surface-variant truncate">{t.details}</p>
+                </div>
+                <p className="font-extrabold text-primary text-sm shrink-0">{context.preferences.currency} {t.price}</p>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
 
       {context.status === 'reviewing' && (
         <div className="fixed bottom-24 left-0 right-0 z-50 px-6 flex justify-center animate-in fade-in slide-in-from-bottom-10 duration-500">

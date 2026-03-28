@@ -15,6 +15,17 @@ export interface TrendingDestination {
   score: number;
 }
 
+export interface CityFeasibility {
+  city: string;
+  country: string;
+  feasible: boolean;
+  reason: string;
+  budgetImpact: number;      // estimated additional cost in user's currency
+  daysNeeded: number;         // ideal additional days
+  recommendation: string;     // human-readable suggestion
+  newTotalBudget?: number;    // suggested new budget if not feasible
+}
+
 export interface UserPreferenceSummary {
   topInterests: string[];
   averagePace: 'relaxed' | 'moderate' | 'intense';

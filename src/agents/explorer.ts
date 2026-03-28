@@ -118,9 +118,11 @@ export class Explorer {
 
     try {
       const result = JSON.parse(response.text || "{}");
+      console.log(`[Explorer] ${city}: got ${result.activities?.length ?? 0} activities`);
       return { activities: result.activities || [] };
     } catch (e) {
       console.error(`Failed to parse Explorer response for ${city}:`, e);
+      console.error(`[Explorer] Raw response for ${city}:`, response.text?.slice(0, 300));
       return { activities: [] };
     }
   }

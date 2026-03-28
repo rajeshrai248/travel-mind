@@ -5,7 +5,7 @@ import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { Send, User, Bot, Loader2, Paperclip, Mic } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { Orchestrator } from '../agents/orchestrator';
+import { callAgentApi } from '../lib/api';
 import Markdown from 'react-markdown';
 
 export function ChatScreen() {
@@ -29,9 +29,7 @@ export function ChatScreen() {
     setIsTyping(true);
 
     try {
-      const orchestrator = new Orchestrator(process.env.GEMINI_API_KEY!);
-      const result = await orchestrator.processInput(context, { type: 'text', data: userMessage });
-      
+      const result = await callAgentApi('text', userMessage, context);
       if (result.conversationHistory) {
         const lastMessage = result.conversationHistory[result.conversationHistory.length - 1];
         addMessage(lastMessage);

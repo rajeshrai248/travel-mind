@@ -28,6 +28,16 @@ export class RegionPlanner {
       ? `Schedule a rest/recovery day every ${restDayFrequency} active travel days. Rest days should have only light, optional activities.`
       : 'No mandatory rest days needed.';
 
+    // Compute minimum unique stops based on pace and duration
+    const minUniqueStops =
+      pace === 'intense' ? Math.max(3, Math.floor(durationDays / 2))
+      : pace === 'moderate' ? Math.max(3, Math.floor(durationDays / 2.5))
+      : Math.max(2, Math.floor(durationDays / 3));
+
+    const noRestDaysNote = restDayFrequency === 0
+      ? `The traveler does NOT want any rest days — use every day actively. This means you can fit in MORE cities.`
+      : '';
+
     const prompt = `
       I'm arriving in ${context.baseCity.city}, ${context.baseCity.country} for ${durationDays} days.
       Travel dates: ${context.travelPeriod.startDate} to ${context.travelPeriod.endDate}.
@@ -37,16 +47,19 @@ export class RegionPlanner {
       Pace: ${paceDesc}
       Interests: ${interests.length > 0 ? interests.join(', ') : 'general sightseeing'}
       ${restDesc}
+      ${noRestDaysNote}
 
-      Plan a multi-destination trip. Suggest which cities/towns to visit, how many days to spend in each,
-      and the logical travel order. Consider:
-      - Travel time between destinations (realistic for the transport mode)
-      - Include the base/arrival city as the first and last stop
+      Plan a multi-destination trip with MULTIPLE cities/towns — do NOT suggest staying in just one city.
+      Rules:
+      - You MUST suggest at least ${minUniqueStops} unique cities/towns to visit (in addition to returning to base)
+      - For a ${durationDays}-day trip every single day counts — spread the traveler across interesting destinations
+      - Even with public transport there are always nearby towns, day-trip destinations, or coastal/mountain stops worth including as overnight stays
+      - Travel time between destinations must be realistic for the transport mode
+      - Include the base/arrival city as the first stop (isBaseCity: true)
       - Allocate arrival day and departure day as lighter days
       - Include travel days when moving between distant cities (don't pack activities on travel days)
       - Total stayDays across all stops must equal exactly ${durationDays}
-      - Only suggest destinations reachable by the specified transport mode within the radius
-      - If transport is public-only and radius is small, it's OK to stay in one city with day trips
+      - Only suggest destinations reachable within the ${travelRadius} km radius
 
       Return the destinations in travel order. The first stop must be the arrival city (isBaseCity: true).
       If the trip returns to the base city at the end, add it again as the last stop (isBaseCity: true).
@@ -92,11 +105,13 @@ export class RegionPlanner {
 
     try {
       const result = JSON.parse(response.text || "{}");
+      console.log(`[RegionPlanner] Got ${result.destinations?.length ?? 0} destinations:`, result.destinations?.map((d: any) => `${d.destination.city} (${d.stayDays}d)`).join(', '));
       return {
         destinations: result.destinations || [],
       };
     } catch (e) {
       console.error("Failed to parse RegionPlanner response:", e);
+      console.error("[RegionPlanner] Raw response:", response.text?.slice(0, 500));
       return {};
     }
   }

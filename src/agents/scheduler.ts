@@ -13,10 +13,10 @@ export class Scheduler {
           events.push({
             id: `event-${Date.now()}-${Math.random()}`,
             title: activity.name,
-            start: `${day.date}T${activity.timeSlot.start}`,
-            end: `${day.date}T${activity.timeSlot.end}`,
-            location: activity.location.address,
-            notes: activity.highlights.join(', '),
+            start: activity.timeSlot ? `${day.date}T${activity.timeSlot.start}` : day.date,
+            end: activity.timeSlot ? `${day.date}T${activity.timeSlot.end}` : day.date,
+            location: activity.location?.address ?? '',
+            notes: (activity.highlights ?? []).join(', '),
             category: activity.category,
           });
         });

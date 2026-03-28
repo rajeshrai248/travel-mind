@@ -65,16 +65,33 @@ export class Concierge {
     stayDays?: number,
   ): Promise<{ accommodations: AccommodationOption[]; transport: TransportOption[] }> {
     const stayNote = stayDays ? `Staying for ${stayDays} nights.` : '';
+    const transportMode = context.preferences.transportMode;
+    const transportHint =
+      transportMode === 'car'
+        ? 'Transport: the traveler has a rental car. Include car rental companies (with daily rates) and parking options in the transport array.'
+        : transportMode === 'public'
+        ? 'Transport: traveler uses public transport only. Include metro/bus passes, taxi/rideshare options.'
+        : 'Transport: mix of rental car and public transport. Include both car rental options and public transit passes.';
 
     const prompt = `
-      Recommend hotels and local transport options in ${city}, ${country}.
+      Recommend accommodations and local transport options in ${city}, ${country}.
       Dates: ${context.travelPeriod!.startDate} to ${context.travelPeriod!.endDate}.
       ${stayNote}
-      Total trip budget: ${context.preferences.totalBudget} ${context.preferences.currency} for the entire trip (${context.travelPeriod!.durationDays} days, so roughly ${Math.round(context.preferences.totalBudget / context.travelPeriod!.durationDays)} ${context.preferences.currency}/day).
-      Transport preference: ${context.preferences.transportMode}.
-      Tag each accommodation with its city name in the location field.
-      Filter by: budget, star rating, guest rating, location (proximity to city center), amenities, cancellation policy.
-      Present options in tiered recommendations: Budget, Mid-Range, Premium.
+      Total trip budget: ${context.preferences.totalBudget} ${context.preferences.currency} for the entire trip (${context.travelPeriod!.durationDays} days).
+      ${transportHint}
+
+      For accommodations:
+      - Include at least 3 options (Budget, Mid-Range, Premium tiers)
+      - Include hotels, boutique hotels, and Airbnb/apartment-style options
+      - Tag each with its city name in the location field (e.g. "City Center, ${city}")
+      - Include realistic price per night in ${context.preferences.currency}
+
+      For transport:
+      - Include at least 2-3 options relevant to the transport preference above
+      - For car rentals: include the provider name, daily rate, and vehicle type in details
+      - Include realistic prices
+
+      Generate a unique id for each accommodation and transport option (e.g. "acc-${city.toLowerCase().replace(/\s/g,'-')}-1").
     `;
 
     const response = await this.ai.models.generateContent({
@@ -99,7 +116,7 @@ export class Concierge {
                   amenities: { type: Type.ARRAY, items: { type: Type.STRING } },
                   photos: { type: Type.ARRAY, items: { type: Type.STRING } },
                 },
-                required: ["name", "type", "pricePerNight", "rating", "location"],
+                required: ["id", "name", "type", "pricePerNight", "rating", "location"],
               },
             },
             transport: {
@@ -113,7 +130,7 @@ export class Concierge {
                   price: { type: Type.NUMBER },
                   details: { type: Type.STRING },
                 },
-                required: ["type", "provider", "price", "details"],
+                required: ["id", "type", "provider", "price", "details"],
               },
             },
           },
@@ -124,12 +141,14 @@ export class Concierge {
 
     try {
       const result = JSON.parse(response.text || "{}");
+      console.log(`[Concierge] ${city}: ${result.accommodations?.length ?? 0} accommodations, ${result.transport?.length ?? 0} transport options`);
       return {
         accommodations: result.accommodations || [],
         transport: result.transport || [],
       };
     } catch (e) {
       console.error(`Failed to parse Concierge response for ${city}:`, e);
+      console.error(`[Concierge] Raw response for ${city}:`, response.text?.slice(0, 300));
       return { accommodations: [], transport: [] };
     }
   }

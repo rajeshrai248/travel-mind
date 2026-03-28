@@ -5,20 +5,14 @@ import { Loader2, Plane } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export function LoginScreen() {
-  const { signInWithGoogle, signInWithFacebook } = useAuth();
+  const { signInWithGoogle } = useAuth();
   const { error } = useAuthStore();
-  const [loading, setLoading] = useState<'google' | 'facebook' | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleGoogle = async () => {
-    setLoading('google');
+    setLoading(true);
     await signInWithGoogle();
-    setLoading(null);
-  };
-
-  const handleFacebook = async () => {
-    setLoading('facebook');
-    await signInWithFacebook();
-    setLoading(null);
+    setLoading(false);
   };
 
   return (
@@ -42,10 +36,10 @@ export function LoginScreen() {
       <div className="w-full max-w-sm space-y-4">
         <button
           onClick={handleGoogle}
-          disabled={loading !== null}
+          disabled={loading}
           className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl border-2 border-outline-variant bg-surface-container-lowest font-semibold text-on-surface transition-all active:scale-[0.98] hover:bg-surface-container-low disabled:opacity-50"
         >
-          {loading === 'google' ? (
+          {loading ? (
             <Loader2 size={20} className="animate-spin" />
           ) : (
             <svg width="20" height="20" viewBox="0 0 24 24">
@@ -58,20 +52,6 @@ export function LoginScreen() {
           Continue with Google
         </button>
 
-        <button
-          onClick={handleFacebook}
-          disabled={loading !== null}
-          className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl bg-[#1877F2] text-white font-semibold transition-all active:scale-[0.98] hover:bg-[#166FE5] disabled:opacity-50"
-        >
-          {loading === 'facebook' ? (
-            <Loader2 size={20} className="animate-spin" />
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-            </svg>
-          )}
-          Continue with Facebook
-        </button>
       </div>
 
       {error && (

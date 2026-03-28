@@ -5,6 +5,4 @@ coverage/
 .DS_Store
 *.log
 .env*
-!.env.example
 google-services.json
-.env.example
